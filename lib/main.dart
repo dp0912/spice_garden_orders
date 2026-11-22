@@ -1,7 +1,15 @@
 
 import 'package:material_ui/material_ui.dart';
 
-void main() {
+import 'data/restaurant_database.dart';
+import 'screens/menu_screen.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize and seed the database on first launch.
+  await RestaurantDatabase.instance.database;
+
   runApp(const SpiceGardenApp());
 }
 
@@ -26,23 +34,72 @@ class SpiceGardenApp extends StatelessWidget {
           backgroundColor: burgundy,
           foregroundColor: Colors.white,
         ),
-      ),
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Spice Garden'),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: burgundy,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 30,
+              vertical: 16,
+            ),
+          ),
         ),
-        body: const Center(
+      ),
+      home: const WelcomeScreen(),
+    );
+  }
+}
+
+class WelcomeScreen extends StatelessWidget {
+  const WelcomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const burgundy = Color(0xFF7A2329);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Spice Garden'),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.restaurant_menu, size: 64),
-              SizedBox(height: 16),
-              Text(
-                'Welcome to Spice Garden',
-                style: TextStyle(fontSize: 22),
+              const Icon(
+                Icons.restaurant_menu,
+                size: 85,
+                color: burgundy,
               ),
-              SizedBox(height: 8),
-              Text('Your daily food budget planner'),
+              const SizedBox(height: 20),
+              const Text(
+                'Welcome to Spice Garden',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 25,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Your daily food budget planner',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.menu_book),
+                label: const Text('View Menu'),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                      const MenuScreen(),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         ),

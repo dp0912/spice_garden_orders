@@ -4,6 +4,17 @@ import 'package:sqflite/sqflite.dart';
 
 import '../models/food_item.dart';
 
+// Used when an order already exists for a selected date.
+class DuplicateOrderDateException implements Exception {
+  final String date;
+
+  const DuplicateOrderDateException(this.date);
+
+  @override
+  String toString() =>
+      'An order plan already exists for $date.';
+}
+
 class RestaurantDatabase {
   RestaurantDatabase._();
 
@@ -16,7 +27,7 @@ class RestaurantDatabase {
     return _databaseFuture ??= _openDatabase();
   }
 
-  // Open the persistent SQLite database on the device.
+  // Open the persistent SQLite database.
   Future<Database> _openDatabase() async {
     final dbPath = join(
       await getDatabasesPath(),
@@ -30,7 +41,7 @@ class RestaurantDatabase {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: (db, version) async {
-        // Table 1: Restaurant menu.
+        // Restaurant menu table.
         await db.execute('''
           CREATE TABLE food_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +52,7 @@ class RestaurantDatabase {
           )
         ''');
 
-        // Table 2: Saved daily order plans.
+        // Saved order plans.
         await db.execute('''
           CREATE TABLE order_plans (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +62,7 @@ class RestaurantDatabase {
           )
         ''');
 
-        // Table 3: Foods in each saved order.
+        // Selected foods belonging to each saved plan.
         await db.execute('''
           CREATE TABLE order_plan_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,7 +84,7 @@ class RestaurantDatabase {
     );
   }
 
-  // Seed 20 menu items during first database creation.
+  // Insert 20 restaurant foods on first installation.
   Future<void> _seedFoodItems(Database db) async {
     final foods = [
       ['Masala Chai', 'Beverages', 250],
@@ -111,7 +122,7 @@ class RestaurantDatabase {
     await batch.commit(noResult: true);
   }
 
-  // Read all menu items, ordered by category and name.
+  // Read the restaurant menu.
   Future<List<FoodItem>> getAllFoodItems() async {
     final db = await database;
 
@@ -121,5 +132,90 @@ class RestaurantDatabase {
     );
 
     return rows.map(FoodItem.fromMap).toList();
+  }
+
+  // Convert a date into the ISO format used by SQLite.
+  String _dateToString(DateTime date) {
+    final year = date.year;
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+
+    return '$year-$month-$day';
+  }
+
+  // Save a complete order plan and its foods atomically.
+  Future<int> saveOrderPlan({
+    required DateTime date,
+    required int targetCents,
+    required List<FoodItem> selectedFoods,
+  }) async {
+    // Validate the incoming order before writing.
+    if (targetCents <= 0) {
+      throw ArgumentError('Budget must be positive.');
+    }
+
+    if (selectedFoods.isEmpty) {
+      throw ArgumentError('Select at least one food item.');
+    }
+
+    final uniqueIds =
+    selectedFoods.map((food) => food.id).toSet();
+
+    if (uniqueIds.length != selectedFoods.length) {
+      throw ArgumentError('Duplicate food items detected.');
+    }
+
+    final totalCents = selectedFoods.fold<int>(
+      0,
+          (sum, food) => sum + food.priceCents,
+    );
+
+    if (totalCents > targetCents) {
+      throw ArgumentError('Order exceeds the daily budget.');
+    }
+
+    final selectedDate = _dateToString(date);
+    final db = await database;
+
+    // If any insert fails, the entire order is rolled back.
+    return db.transaction<int>((txn) async {
+      // Allow one order plan per date for now.
+      final existing = await txn.query(
+        'order_plans',
+        columns: ['id'],
+        where: 'plan_date = ?',
+        whereArgs: [selectedDate],
+        limit: 1,
+      );
+
+      if (existing.isNotEmpty) {
+        throw DuplicateOrderDateException(selectedDate);
+      }
+
+      // Insert the order plan and obtain its ID.
+      final planId = await txn.insert(
+        'order_plans',
+        {
+          'plan_date': selectedDate,
+          'target_cents': targetCents,
+          'total_cents': totalCents,
+        },
+      );
+
+      // Save snapshots of the selected food items.
+      for (final food in selectedFoods) {
+        await txn.insert(
+          'order_plan_items',
+          {
+            'plan_id': planId,
+            'food_id': food.id,
+            'item_name': food.name,
+            'price_cents': food.priceCents,
+          },
+        );
+      }
+
+      return planId;
+    });
   }
 }

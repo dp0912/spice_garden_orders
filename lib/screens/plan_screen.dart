@@ -24,12 +24,13 @@ class _PlanScreenState extends State<PlanScreen> {
 
   DateTime _selectedDate = DateTime.now();
   int _totalCents = 0;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Read food items from the existing SQLite database.
+    // Load food items from SQLite.
     _foodItemsFuture =
         RestaurantDatabase.instance.getAllFoodItems();
   }
@@ -40,7 +41,7 @@ class _PlanScreenState extends State<PlanScreen> {
     super.dispose();
   }
 
-  // Convert the selected date to a readable string.
+  // Format dates consistently for display.
   String _formatDate(DateTime date) {
     final year = date.year;
     final month = date.month.toString().padLeft(2, '0');
@@ -49,7 +50,7 @@ class _PlanScreenState extends State<PlanScreen> {
     return '$year-$month-$day';
   }
 
-  // Open a calendar to choose the order date.
+  // Let the user pick an order date.
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -67,7 +68,7 @@ class _PlanScreenState extends State<PlanScreen> {
     }
   }
 
-  // Display a warning at the bottom of the screen.
+  // Show validation or database messages.
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
@@ -79,9 +80,8 @@ class _PlanScreenState extends State<PlanScreen> {
     );
   }
 
-  // Add or remove a food without exceeding the budget.
+  // Select or deselect food while enforcing the budget.
   void _toggleFood(FoodItem food) {
-    // Allow removing an already selected food.
     if (_selectedFoodIds.contains(food.id)) {
       setState(() {
         _selectedFoodIds.remove(food.id);
@@ -94,9 +94,7 @@ class _PlanScreenState extends State<PlanScreen> {
     parseBudgetToCents(_budgetController.text);
 
     if (targetCents == null) {
-      _showMessage(
-        'Enter a valid daily budget first.',
-      );
+      _showMessage('Enter a valid daily budget first.');
       return;
     }
 
@@ -105,12 +103,11 @@ class _PlanScreenState extends State<PlanScreen> {
       itemPriceCents: food.priceCents,
       targetCents: targetCents,
     )) {
-      final remainingCents =
-          targetCents - _totalCents;
+      final remaining = targetCents - _totalCents;
 
       _showMessage(
         'Budget exceeded! Only '
-            '${formatCents(remainingCents)} remaining.',
+            '${formatCents(remaining)} remaining.',
       );
       return;
     }
@@ -121,7 +118,139 @@ class _PlanScreenState extends State<PlanScreen> {
     });
   }
 
-  // Display the target, selected total and remaining budget.
+  // Save the date, budget and selected foods into SQLite.
+  Future<void> _saveOrderPlan(
+      List<FoodItem> allFoods,
+      ) async {
+    if (_isSaving) return;
+
+    final targetCents =
+    parseBudgetToCents(_budgetController.text);
+
+    if (targetCents == null) {
+      _showMessage('Please enter a valid daily budget.');
+      return;
+    }
+
+    final selectedFoods = allFoods
+        .where((food) => _selectedFoodIds.contains(food.id))
+        .toList();
+
+    if (selectedFoods.isEmpty) {
+      _showMessage('Please select at least one food item.');
+      return;
+    }
+
+    // Recalculate the total before saving.
+    final actualTotal = selectedFoods.fold<int>(
+      0,
+          (sum, food) => sum + food.priceCents,
+    );
+
+    if (actualTotal > targetCents) {
+      _showMessage(
+        'Cannot save: order exceeds the daily budget.',
+      );
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      // Store the order in a SQLite transaction.
+      final planId =
+      await RestaurantDatabase.instance.saveOrderPlan(
+        date: _selectedDate,
+        targetCents: targetCents,
+        selectedFoods: selectedFoods,
+      );
+
+      if (!mounted) return;
+
+      // Display the saved order confirmation.
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Order Saved!'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Your order plan was saved '
+                        'successfully in SQLite.',
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Order ID: $planId'),
+                  Text(
+                    'Date: ${_formatDate(_selectedDate)}',
+                  ),
+                  Text(
+                    'Daily Budget: '
+                        '${formatCents(targetCents)}',
+                  ),
+                  Text(
+                    'Total Cost: '
+                        '${formatCents(actualTotal)}',
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Selected Foods:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  for (final food in selectedFoods)
+                    Text(
+                      '${food.name} - '
+                          '${food.formattedPrice}',
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+
+      // Return Home after the user closes the dialog.
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } on DuplicateOrderDateException catch (error) {
+      if (mounted) {
+        _showMessage(error.toString());
+      }
+    } on ArgumentError catch (error) {
+      if (mounted) {
+        _showMessage(error.message.toString());
+      }
+    } catch (error) {
+      if (mounted) {
+        _showMessage('Unable to save order: $error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  // Build the summary card.
   Widget _buildBudgetSummary(int? targetCents) {
     final remainingCents =
     targetCents == null ? 0 : targetCents - _totalCents;
@@ -235,7 +364,7 @@ class _PlanScreenState extends State<PlanScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Daily budget input.
+              // Daily target input.
               TextField(
                 controller: _budgetController,
                 keyboardType:
@@ -248,7 +377,8 @@ class _PlanScreenState extends State<PlanScreen> {
                   prefixIcon:
                   const Icon(Icons.attach_money),
                   border: const OutlineInputBorder(),
-                  errorText: _budgetController.text.isNotEmpty &&
+                  errorText:
+                  _budgetController.text.isNotEmpty &&
                       targetCents == null
                       ? 'Enter a positive amount, up to 2 decimals.'
                       : null,
@@ -259,7 +389,6 @@ class _PlanScreenState extends State<PlanScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Order date.
               const Text(
                 'Select order date',
                 style: TextStyle(
@@ -268,6 +397,8 @@ class _PlanScreenState extends State<PlanScreen> {
                 ),
               ),
               const SizedBox(height: 8),
+
+              // Date picker button.
               OutlinedButton.icon(
                 icon: const Icon(Icons.calendar_month),
                 onPressed: _pickDate,
@@ -277,9 +408,33 @@ class _PlanScreenState extends State<PlanScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Show the calculated budget.
               _buildBudgetSummary(targetCents),
+              const SizedBox(height: 16),
 
-              const SizedBox(height: 20),
+              // NEW: Save the selected order into SQLite.
+              ElevatedButton.icon(
+                onPressed: _isSaving
+                    ? null
+                    : () => _saveOrderPlan(foods),
+                icon: _isSaving
+                    ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+                    : const Icon(Icons.save),
+                label: Text(
+                  _isSaving
+                      ? 'Saving...'
+                      : 'Save Order Plan',
+                ),
+              ),
+
+              const SizedBox(height: 22),
               const Text(
                 'Choose Food Items',
                 style: TextStyle(
@@ -295,7 +450,7 @@ class _PlanScreenState extends State<PlanScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Select food items loaded from SQLite.
+              // Food selection list.
               ...foods.map((food) {
                 final isSelected =
                 _selectedFoodIds.contains(food.id);
@@ -333,16 +488,6 @@ class _PlanScreenState extends State<PlanScreen> {
                 );
               }),
 
-              const SizedBox(height: 16),
-              const Text(
-                'Selected foods are currently held '
-                    'in app state. Database saving will '
-                    'be added in the next stage.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.black54,
-                ),
-              ),
               const SizedBox(height: 24),
             ],
           );

@@ -1,4 +1,3 @@
-
 /// Converts a dollar amount such as "30.50" into integer cents.
 /// Returns null when the input is invalid or not positive.
 int? parseBudgetToCents(String input) {
@@ -13,9 +12,7 @@ int? parseBudgetToCents(String input) {
 
   if (dollars == null) return null;
 
-  final cents = parts.length == 2
-      ? int.parse(parts[1].padRight(2, '0'))
-      : 0;
+  final cents = parts.length == 2 ? int.parse(parts[1].padRight(2, '0')) : 0;
 
   final total = dollars * 100 + cents;
   return total > 0 ? total : null;

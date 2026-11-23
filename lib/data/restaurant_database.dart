@@ -1,4 +1,3 @@
-
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -11,15 +10,13 @@ class DuplicateOrderDateException implements Exception {
   const DuplicateOrderDateException(this.date);
 
   @override
-  String toString() =>
-      'An order plan already exists for $date.';
+  String toString() => 'An order plan already exists for $date.';
 }
 
 class RestaurantDatabase {
   RestaurantDatabase._();
 
-  static final RestaurantDatabase instance =
-  RestaurantDatabase._();
+  static final RestaurantDatabase instance = RestaurantDatabase._();
 
   Future<Database>? _databaseFuture;
 
@@ -29,10 +26,7 @@ class RestaurantDatabase {
 
   // Open the persistent SQLite database.
   Future<Database> _openDatabase() async {
-    final dbPath = join(
-      await getDatabasesPath(),
-      'spice_garden.db',
-    );
+    final dbPath = join(await getDatabasesPath(), 'spice_garden.db');
 
     return openDatabase(
       dbPath,
@@ -158,8 +152,7 @@ class RestaurantDatabase {
       throw ArgumentError('Select at least one food item.');
     }
 
-    final uniqueIds =
-    selectedFoods.map((food) => food.id).toSet();
+    final uniqueIds = selectedFoods.map((food) => food.id).toSet();
 
     if (uniqueIds.length != selectedFoods.length) {
       throw ArgumentError('Duplicate food items detected.');
@@ -167,7 +160,7 @@ class RestaurantDatabase {
 
     final totalCents = selectedFoods.fold<int>(
       0,
-          (sum, food) => sum + food.priceCents,
+      (sum, food) => sum + food.priceCents,
     );
 
     if (totalCents > targetCents) {
@@ -193,26 +186,20 @@ class RestaurantDatabase {
       }
 
       // Insert the order plan and obtain its ID.
-      final planId = await txn.insert(
-        'order_plans',
-        {
-          'plan_date': selectedDate,
-          'target_cents': targetCents,
-          'total_cents': totalCents,
-        },
-      );
+      final planId = await txn.insert('order_plans', {
+        'plan_date': selectedDate,
+        'target_cents': targetCents,
+        'total_cents': totalCents,
+      });
 
       // Save snapshots of the selected food items.
       for (final food in selectedFoods) {
-        await txn.insert(
-          'order_plan_items',
-          {
-            'plan_id': planId,
-            'food_id': food.id,
-            'item_name': food.name,
-            'price_cents': food.priceCents,
-          },
-        );
+        await txn.insert('order_plan_items', {
+          'plan_id': planId,
+          'food_id': food.id,
+          'item_name': food.name,
+          'price_cents': food.priceCents,
+        });
       }
 
       return planId;

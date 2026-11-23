@@ -1,4 +1,3 @@
-
 import 'package:material_ui/material_ui.dart';
 
 import '../data/restaurant_database.dart';
@@ -15,8 +14,7 @@ class PlanScreen extends StatefulWidget {
 class _PlanScreenState extends State<PlanScreen> {
   static const burgundy = Color(0xFF7A2329);
 
-  final TextEditingController _budgetController =
-  TextEditingController();
+  final TextEditingController _budgetController = TextEditingController();
 
   final Set<int> _selectedFoodIds = {};
 
@@ -31,8 +29,7 @@ class _PlanScreenState extends State<PlanScreen> {
     super.initState();
 
     // Load food items from SQLite.
-    _foodItemsFuture =
-        RestaurantDatabase.instance.getAllFoodItems();
+    _foodItemsFuture = RestaurantDatabase.instance.getAllFoodItems();
   }
 
   @override
@@ -73,10 +70,7 @@ class _PlanScreenState extends State<PlanScreen> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 3),
-      ),
+      SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
     );
   }
 
@@ -90,8 +84,7 @@ class _PlanScreenState extends State<PlanScreen> {
       return;
     }
 
-    final targetCents =
-    parseBudgetToCents(_budgetController.text);
+    final targetCents = parseBudgetToCents(_budgetController.text);
 
     if (targetCents == null) {
       _showMessage('Enter a valid daily budget first.');
@@ -107,7 +100,7 @@ class _PlanScreenState extends State<PlanScreen> {
 
       _showMessage(
         'Budget exceeded! Only '
-            '${formatCents(remaining)} remaining.',
+        '${formatCents(remaining)} remaining.',
       );
       return;
     }
@@ -119,13 +112,10 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 
   // Save the date, budget and selected foods into SQLite.
-  Future<void> _saveOrderPlan(
-      List<FoodItem> allFoods,
-      ) async {
+  Future<void> _saveOrderPlan(List<FoodItem> allFoods) async {
     if (_isSaving) return;
 
-    final targetCents =
-    parseBudgetToCents(_budgetController.text);
+    final targetCents = parseBudgetToCents(_budgetController.text);
 
     if (targetCents == null) {
       _showMessage('Please enter a valid daily budget.');
@@ -144,13 +134,11 @@ class _PlanScreenState extends State<PlanScreen> {
     // Recalculate the total before saving.
     final actualTotal = selectedFoods.fold<int>(
       0,
-          (sum, food) => sum + food.priceCents,
+      (sum, food) => sum + food.priceCents,
     );
 
     if (actualTotal > targetCents) {
-      _showMessage(
-        'Cannot save: order exceeds the daily budget.',
-      );
+      _showMessage('Cannot save: order exceeds the daily budget.');
       return;
     }
 
@@ -160,8 +148,7 @@ class _PlanScreenState extends State<PlanScreen> {
 
     try {
       // Store the order in a SQLite transaction.
-      final planId =
-      await RestaurantDatabase.instance.saveOrderPlan(
+      final planId = await RestaurantDatabase.instance.saveOrderPlan(
         date: _selectedDate,
         targetCents: targetCents,
         selectedFoods: selectedFoods,
@@ -182,33 +169,29 @@ class _PlanScreenState extends State<PlanScreen> {
                 children: [
                   const Text(
                     'Your order plan was saved '
-                        'successfully in SQLite.',
+                    'successfully in SQLite.',
                   ),
                   const SizedBox(height: 12),
                   Text('Order ID: $planId'),
-                  Text(
-                    'Date: ${_formatDate(_selectedDate)}',
-                  ),
+                  Text('Date: ${_formatDate(_selectedDate)}'),
                   Text(
                     'Daily Budget: '
-                        '${formatCents(targetCents)}',
+                    '${formatCents(targetCents)}',
                   ),
                   Text(
                     'Total Cost: '
-                        '${formatCents(actualTotal)}',
+                    '${formatCents(actualTotal)}',
                   ),
                   const SizedBox(height: 12),
                   const Text(
                     'Selected Foods:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 6),
                   for (final food in selectedFoods)
                     Text(
                       '${food.name} - '
-                          '${food.formattedPrice}',
+                      '${food.formattedPrice}',
                     ),
                 ],
               ),
@@ -252,11 +235,9 @@ class _PlanScreenState extends State<PlanScreen> {
 
   // Build the summary card.
   Widget _buildBudgetSummary(int? targetCents) {
-    final remainingCents =
-    targetCents == null ? 0 : targetCents - _totalCents;
+    final remainingCents = targetCents == null ? 0 : targetCents - _totalCents;
 
-    final overBudget =
-        targetCents != null && _totalCents > targetCents;
+    final overBudget = targetCents != null && _totalCents > targetCents;
 
     return Card(
       color: Colors.white,
@@ -274,25 +255,21 @@ class _PlanScreenState extends State<PlanScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'Selected items: ${_selectedFoodIds.length}',
-            ),
+            Text('Selected items: ${_selectedFoodIds.length}'),
             const SizedBox(height: 8),
             Text(
               'Daily target: '
-                  '${targetCents == null ? 'Not set' : formatCents(targetCents)}',
+              '${targetCents == null ? 'Not set' : formatCents(targetCents)}',
             ),
             const SizedBox(height: 8),
             Text(
               'Selected total: ${formatCents(_totalCents)}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               'Remaining: '
-                  '${targetCents == null ? '--' : formatCents(remainingCents)}',
+              '${targetCents == null ? '--' : formatCents(remainingCents)}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: overBudget ? Colors.red : burgundy,
@@ -302,8 +279,8 @@ class _PlanScreenState extends State<PlanScreen> {
               const SizedBox(height: 12),
               const Text(
                 'Your current selection exceeds the '
-                    'updated budget. Increase the budget '
-                    'or remove some food items.',
+                'updated budget. Increase the budget '
+                'or remove some food items.',
                 style: TextStyle(
                   color: Colors.red,
                   fontWeight: FontWeight.bold,
@@ -318,37 +295,27 @@ class _PlanScreenState extends State<PlanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final targetCents =
-    parseBudgetToCents(_budgetController.text);
+    final targetCents = parseBudgetToCents(_budgetController.text);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Plan Daily Order'),
-      ),
+      appBar: AppBar(title: const Text('Plan Daily Order')),
       body: FutureBuilder<List<FoodItem>>(
         future: _foodItemsFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
             return Center(
-              child: Text(
-                'Unable to load foods: ${snapshot.error}',
-              ),
+              child: Text('Unable to load foods: ${snapshot.error}'),
             );
           }
 
           final foods = snapshot.data ?? [];
 
           if (foods.isEmpty) {
-            return const Center(
-              child: Text('No foods available.'),
-            );
+            return const Center(child: Text('No foods available.'));
           }
 
           return ListView(
@@ -367,19 +334,16 @@ class _PlanScreenState extends State<PlanScreen> {
               // Daily target input.
               TextField(
                 controller: _budgetController,
-                keyboardType:
-                const TextInputType.numberWithOptions(
+                keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 decoration: InputDecoration(
                   labelText: 'Target cost per day (CAD)',
                   hintText: 'e.g. 30.00',
-                  prefixIcon:
-                  const Icon(Icons.attach_money),
+                  prefixIcon: const Icon(Icons.attach_money),
                   border: const OutlineInputBorder(),
                   errorText:
-                  _budgetController.text.isNotEmpty &&
-                      targetCents == null
+                      _budgetController.text.isNotEmpty && targetCents == null
                       ? 'Enter a positive amount, up to 2 decimals.'
                       : null,
                 ),
@@ -391,10 +355,7 @@ class _PlanScreenState extends State<PlanScreen> {
 
               const Text(
                 'Select order date',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 8),
 
@@ -402,9 +363,7 @@ class _PlanScreenState extends State<PlanScreen> {
               OutlinedButton.icon(
                 icon: const Icon(Icons.calendar_month),
                 onPressed: _pickDate,
-                label: Text(
-                  _formatDate(_selectedDate),
-                ),
+                label: Text(_formatDate(_selectedDate)),
               ),
               const SizedBox(height: 16),
 
@@ -414,24 +373,18 @@ class _PlanScreenState extends State<PlanScreen> {
 
               // NEW: Save the selected order into SQLite.
               ElevatedButton.icon(
-                onPressed: _isSaving
-                    ? null
-                    : () => _saveOrderPlan(foods),
+                onPressed: _isSaving ? null : () => _saveOrderPlan(foods),
                 icon: _isSaving
                     ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Icon(Icons.save),
-                label: Text(
-                  _isSaving
-                      ? 'Saving...'
-                      : 'Save Order Plan',
-                ),
+                label: Text(_isSaving ? 'Saving...' : 'Save Order Plan'),
               ),
 
               const SizedBox(height: 22),
@@ -446,32 +399,24 @@ class _PlanScreenState extends State<PlanScreen> {
               const SizedBox(height: 6),
               const Text(
                 'Select foods without exceeding '
-                    'your daily target.',
+                'your daily target.',
               ),
               const SizedBox(height: 12),
 
               // Food selection list.
               ...foods.map((food) {
-                final isSelected =
-                _selectedFoodIds.contains(food.id);
+                final isSelected = _selectedFoodIds.contains(food.id);
 
                 return Card(
-                  margin: const EdgeInsets.only(
-                    bottom: 8,
-                  ),
-                  color: isSelected
-                      ? const Color(0xFFFFE5D1)
-                      : Colors.white,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  color: isSelected ? const Color(0xFFFFE5D1) : Colors.white,
                   child: CheckboxListTile(
                     value: isSelected,
                     activeColor: burgundy,
-                    controlAffinity:
-                    ListTileControlAffinity.leading,
+                    controlAffinity: ListTileControlAffinity.leading,
                     title: Text(
                       food.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(food.category),
                     secondary: Text(
